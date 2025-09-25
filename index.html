@@ -18,44 +18,6 @@
             overflow: hidden;
         }
         
-        /* Экран загрузки */
-        #loadingScreen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #1a1a2e;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        
-        .logo {
-            font-size: 4rem;
-            font-weight: bold;
-            color: #4cc9f0;
-            text-shadow: 0 0 20px #4cc9f0;
-            margin-bottom: 2rem;
-        }
-        
-        .loading-bar {
-            width: 300px;
-            height: 4px;
-            background: #333;
-            border-radius: 2px;
-            overflow: hidden;
-        }
-        
-        .loading-progress {
-            height: 100%;
-            background: #4cc9f0;
-            width: 0%;
-            transition: width 0.3s;
-        }
-        
         /* Главное меню */
         #mainMenu {
             position: fixed;
@@ -117,6 +79,7 @@
             height: 100%;
             pointer-events: none;
             z-index: 100;
+            display: none;
         }
         
         #crosshair {
@@ -127,17 +90,6 @@
             color: white;
             font-size: 24px;
             opacity: 0.8;
-        }
-        
-        #debugInfo {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.5);
-            padding: 10px;
-            border-radius: 5px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
         }
         
         #hotbar {
@@ -172,16 +124,6 @@
             border-radius: 4px;
         }
         
-        .block-count {
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            background: rgba(0,0,0,0.8);
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 10px;
-        }
-        
         /* Пауза */
         #pauseMenu {
             position: fixed;
@@ -198,34 +140,19 @@
     </style>
 </head>
 <body>
-    <!-- Экран загрузки -->
-    <div id="loadingScreen">
-        <div class="logo">METACRAFT</div>
-        <div class="loading-bar">
-            <div class="loading-progress" id="loadingProgress"></div>
-        </div>
-        <div id="loadingText">Загрузка... 0%</div>
-    </div>
-    
     <!-- Главное меню -->
-    <div id="mainMenu" style="display: none;">
+    <div id="mainMenu">
         <div class="menu-title">METACRAFT</div>
         <div class="menu-subtitle">Alpha 0.1.4 - Создай свою вселенную</div>
         <div class="menu-buttons">
             <button class="menu-btn" onclick="startGame()">Начать игру</button>
-            <button class="menu-btn" onclick="showSettings()">Настройки</button>
             <button class="menu-btn" onclick="showAbout()">Об игре</button>
         </div>
     </div>
     
     <!-- Игровой интерфейс -->
-    <div id="gameUI" style="display: none;">
+    <div id="gameUI">
         <div id="crosshair">+</div>
-        <div id="debugInfo">
-            <div>Позиция: <span id="posX">0</span>, <span id="posY">0</span>, <span id="posZ">0</span></div>
-            <div>Биом: <span id="biome">-</span></div>
-            <div>Режим: <span id="gameMode">-</span></div>
-        </div>
         <div id="hotbar"></div>
     </div>
     
@@ -243,7 +170,425 @@
     <canvas id="gameCanvas"></canvas>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="js/game.js"></script>
-    <script src="js/menu.js"></script>
+    
+    <script>
+    // =============================================
+    // ПРОСТОЙ МЕНЕДЖЕР МЕНЮ (без загрузочного экрана)
+    // =============================================
+    function startGame() {
+        document.getElementById('mainMenu').style.display = 'none';
+        document.getElementById('gameUI').style.display = 'block';
+        
+        // Запускаем игру
+        if (!window.game) {
+            window.game = new MetaCraftGame();
+        }
+        window.game.start();
+    }
+    
+    function resumeGame() {
+        document.getElementById('pauseMenu').style.display = 'none';
+        if (window.game) {
+            window.game.setPaused(false);
+        }
+    }
+    
+    function backToMenu() {
+        document.getElementById('pauseMenu').style.display = 'none';
+        document.getElementById('gameUI').style.display = 'none';
+        document.getElementById('mainMenu').style.display = 'flex';
+        
+        if (window.game) {
+            window.game.stop();
+            window.game = null;
+        }
+    }
+    
+    function showAbout() {
+        alert('MetaCraft Alpha 0.1.4\n\nУправление:\nWASD - движение\nМышь - вращение камеры\nЛКМ/ПКМ - установка/удаление блоков\n1-8 - выбор блоков\nESC - пауза');
+    }
+    
+    // Обработка ESC для паузы
+    document.addEventListener('keydown', (event) => {
+        if (event.code === 'Escape' && window.game) {
+            if (window.game.isPaused) {
+                resumeGame();
+            } else {
+                document.getElementById('pauseMenu').style.display = 'flex';
+                window.game.setPaused(true);
+            }
+        }
+    });
+    </script>
+    
+    <script>
+    // =============================================
+    // УПРОЩЕННАЯ ВЕРСИЯ ИГРЫ (только самое важное)
+    // =============================================
+    class MetaCraftGame {
+        constructor() {
+            this.scene = null;
+            this.camera = null;
+            this.renderer = null;
+            this.raycaster = null;
+            
+            this.blocks = new Map();
+            this.player = {
+                position: new THREE.Vector3(0, 50, 0),
+                velocity: new THREE.Vector3(0, 0, 0),
+                rotation: new THREE.Vector2(0, 0),
+                onGround: false,
+                height: 1.8,
+                radius: 0.4
+            };
+            
+            this.settings = {
+                renderDistance: 3, // Уменьшили для скорости
+                gravity: -30,
+                jumpForce: 10,
+                walkSpeed: 5,
+                mouseSensitivity: 0.002
+            };
+            
+            this.blockTypes = {
+                GRASS: { id: 1, name: 'Земля', color: 0x3d9970, solid: true },
+                STONE: { id: 2, name: 'Камень', color: 0x888888, solid: true },
+                WOOD: { id: 3, name: 'Дерево', color: 0x8B4513, solid: true },
+                SAND: { id: 4, name: 'Песок', color: 0xffd700, solid: true },
+                WATER: { id: 5, name: 'Вода', color: 0x0066cc, solid: false }
+            };
+            
+            this.currentBlockType = this.blockTypes.GRASS;
+            this.isRunning = false;
+            this.isPaused = false;
+            this.keys = {};
+            this.mouse = { x: 0, y: 0, left: false, right: false };
+        }
+        
+        async start() {
+            await this.init();
+            this.isRunning = true;
+            this.animate();
+        }
+        
+        stop() {
+            this.isRunning = false;
+        }
+        
+        setPaused(paused) {
+            this.isPaused = paused;
+        }
+        
+        async init() {
+            // 1. Сцена
+            this.scene = new THREE.Scene();
+            this.scene.background = new THREE.Color(0x87CEEB);
+            
+            // 2. Камера
+            this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            this.updateCameraPosition();
+            
+            // 3. Рендерер
+            this.renderer = new THREE.WebGLRenderer({ 
+                canvas: document.getElementById('gameCanvas'),
+                antialias: true 
+            });
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            // 4. Освещение
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            this.scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(50, 50, 25);
+            this.scene.add(directionalLight);
+            
+            // 5. Raycaster
+            this.raycaster = new THREE.Raycaster();
+            
+            // 6. Простой мир (быстрая генерация)
+            this.generateSimpleWorld();
+            
+            // 7. Призрачный блок
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            this.ghostMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x00ff00, 
+                transparent: true, 
+                opacity: 0.4 
+            });
+            this.ghostBlock = new THREE.Mesh(geometry, this.ghostMaterial);
+            this.scene.add(this.ghostBlock);
+            this.ghostBlock.visible = false;
+            
+            // 8. Хотбар
+            this.setupHotbar();
+            
+            // 9. Управление
+            this.setupControls();
+            
+            console.log('🎮 MetaCraft запущена!');
+        }
+        
+        generateSimpleWorld() {
+            // Простая плоская земля
+            for (let x = -20; x <= 20; x++) {
+                for (let z = -20; z <= 20; z++) {
+                    // Земля
+                    this.createBlock(x, 0, z, this.blockTypes.STONE);
+                    this.createBlock(x, 1, z, this.blockTypes.GRASS);
+                    
+                    // Случайные деревья
+                    if (Math.random() < 0.1 && x % 3 === 0 && z % 3 === 0) {
+                        this.createBlock(x, 2, z, this.blockTypes.WOOD);
+                        this.createBlock(x, 3, z, this.blockTypes.WOOD);
+                    }
+                }
+            }
+            
+            // Помещаем игрока на поверхность
+            this.player.position.set(0, 10, 0);
+            this.updateCameraPosition();
+        }
+        
+        createBlock(x, y, z, blockType) {
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshLambertMaterial({ color: blockType.color });
+            const block = new THREE.Mesh(geometry, material);
+            block.position.set(x, y, z);
+            
+            block.userData = { blockType: blockType, position: { x, y, z } };
+            this.scene.add(block);
+            
+            const key = `${x},${y},${z}`;
+            this.blocks.set(key, block);
+            
+            return block;
+        }
+        
+        removeBlock(x, y, z) {
+            const key = `${x},${y},${z}`;
+            const block = this.blocks.get(key);
+            
+            if (block) {
+                this.scene.remove(block);
+                this.blocks.delete(key);
+                return true;
+            }
+            return false;
+        }
+        
+        setupHotbar() {
+            const hotbar = document.getElementById('hotbar');
+            hotbar.innerHTML = '';
+            
+            const blocks = Object.values(this.blockTypes);
+            
+            blocks.forEach((blockType, index) => {
+                const slot = document.createElement('div');
+                slot.className = 'hotbar-slot';
+                if (blockType.id === this.currentBlockType.id) {
+                    slot.classList.add('active');
+                }
+                
+                const preview = document.createElement('div');
+                preview.className = 'block-preview';
+                preview.style.backgroundColor = `#${blockType.color.toString(16).padStart(6, '0')}`;
+                
+                slot.appendChild(preview);
+                hotbar.appendChild(slot);
+                
+                slot.addEventListener('click', () => {
+                    this.currentBlockType = blockType;
+                    document.querySelectorAll('.hotbar-slot').forEach(s => s.classList.remove('active'));
+                    slot.classList.add('active');
+                    this.ghostMaterial.color.set(blockType.color);
+                });
+            });
+        }
+        
+        setupControls() {
+            document.addEventListener('keydown', (event) => {
+                if (this.isPaused && event.code !== 'Escape') return;
+                this.keys[event.code] = true;
+                
+                // Цифры 1-5 для выбора блоков
+                if (event.code >= 'Digit1' && event.code <= 'Digit5') {
+                    const blocks = Object.values(this.blockTypes);
+                    const index = parseInt(event.code[5]) - 1;
+                    if (blocks[index]) {
+                        this.currentBlockType = blocks[index];
+                        this.setupHotbar();
+                    }
+                }
+            });
+            
+            document.addEventListener('keyup', (event) => {
+                this.keys[event.code] = false;
+            });
+            
+            document.addEventListener('mousemove', (event) => {
+                if (this.isPaused) return;
+                if (document.pointerLockElement === this.renderer.domElement) {
+                    this.mouse.x = event.movementX;
+                    this.mouse.y = event.movementY;
+                }
+            });
+            
+            document.addEventListener('mousedown', (event) => {
+                if (this.isPaused) return;
+                if (document.pointerLockElement === this.renderer.domElement) {
+                    if (event.button === 0) this.mouse.left = true;
+                    if (event.button === 2) this.mouse.right = true;
+                }
+            });
+            
+            document.addEventListener('mouseup', (event) => {
+                if (event.button === 0) this.mouse.left = false;
+                if (event.button === 2) this.mouse.right = false;
+            });
+            
+            document.addEventListener('contextmenu', (event) => event.preventDefault());
+            
+            this.renderer.domElement.addEventListener('click', () => {
+                if (!this.isPaused) {
+                    this.renderer.domElement.requestPointerLock();
+                }
+            });
+        }
+        
+        updateCameraPosition() {
+            this.camera.position.copy(this.player.position);
+            this.camera.position.y += this.player.height - 0.2;
+            
+            this.camera.rotation.order = 'YXZ';
+            this.camera.rotation.y = this.player.rotation.y;
+            this.camera.rotation.x = this.player.rotation.x;
+        }
+        
+        handleInput(deltaTime) {
+            if (this.isPaused) return;
+            
+            // Вращение камеры
+            if (document.pointerLockElement === this.renderer.domElement) {
+                this.player.rotation.y -= this.mouse.x * this.settings.mouseSensitivity;
+                this.player.rotation.x -= this.mouse.y * this.settings.mouseSensitivity;
+                this.player.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, this.player.rotation.x));
+            }
+            
+            // Движение
+            const moveVector = new THREE.Vector3(0, 0, 0);
+            if (this.keys['KeyW']) moveVector.z -= 1;
+            if (this.keys['KeyS']) moveVector.z += 1;
+            if (this.keys['KeyA']) moveVector.x -= 1;
+            if (this.keys['KeyD']) moveVector.x += 1;
+            
+            if (moveVector.length() > 0) {
+                moveVector.normalize();
+                
+                const forward = new THREE.Vector3(0, 0, -1);
+                forward.applyQuaternion(this.camera.quaternion);
+                forward.y = 0;
+                forward.normalize();
+                
+                const right = new THREE.Vector3(1, 0, 0);
+                right.applyQuaternion(this.camera.quaternion);
+                right.y = 0;
+                right.normalize();
+                
+                const worldMove = new THREE.Vector3();
+                worldMove.addScaledVector(forward, moveVector.z);
+                worldMove.addScaledVector(right, moveVector.x);
+                worldMove.multiplyScalar(this.settings.walkSpeed * deltaTime);
+                
+                this.player.position.add(worldMove);
+            }
+            
+            // Прыжок (простая реализация)
+            if (this.keys['Space'] && this.player.onGround) {
+                this.player.velocity.y = this.settings.jumpForce;
+                this.player.onGround = false;
+            }
+            
+            // Гравитация
+            this.player.velocity.y += this.settings.gravity * deltaTime;
+            this.player.position.y += this.player.velocity.y * deltaTime;
+            
+            // Простая проверка земли
+            this.player.onGround = this.player.position.y <= 2;
+            if (this.player.onGround) {
+                this.player.position.y = 2;
+                this.player.velocity.y = 0;
+            }
+            
+            this.updateCameraPosition();
+            this.mouse.x = 0;
+            this.mouse.y = 0;
+        }
+        
+        handleBlockSelection() {
+            if (this.isPaused) return;
+            
+            this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+            const intersects = this.raycaster.intersectObjects(Array.from(this.blocks.values()));
+            
+            this.ghostBlock.visible = false;
+            
+            if (intersects.length > 0) {
+                const intersect = intersects[0];
+                
+                // Позиция для установки блока
+                const normal = intersect.face.normal;
+                const placePos = {
+                    x: Math.round(intersect.point.x + normal.x * 0.5),
+                    y: Math.round(intersect.point.y + normal.y * 0.5),
+                    z: Math.round(intersect.point.z + normal.z * 0.5)
+                };
+                
+                // Призрачный блок
+                if (!this.isBlockAt(placePos.x, placePos.y, placePos.z)) {
+                    this.ghostBlock.position.set(placePos.x, placePos.y, placePos.z);
+                    this.ghostBlock.visible = true;
+                }
+                
+                // Взаимодействие
+                if (this.mouse.right) {
+                    const pos = intersect.object.userData.position;
+                    this.removeBlock(pos.x, pos.y, pos.z);
+                    this.mouse.right = false;
+                } else if (this.mouse.left && this.ghostBlock.visible) {
+                    this.createBlock(placePos.x, placePos.y, placePos.z, this.currentBlockType);
+                    this.mouse.left = false;
+                }
+            }
+        }
+        
+        isBlockAt(x, y, z) {
+            const key = `${x},${y},${z}`;
+            return this.blocks.has(key);
+        }
+        
+        animate() {
+            if (!this.isRunning) return;
+            
+            const clock = new THREE.Clock();
+            
+            const gameLoop = () => {
+                if (!this.isRunning) return;
+                
+                const deltaTime = Math.min(clock.getDelta(), 0.1);
+                
+                if (!this.isPaused) {
+                    this.handleInput(deltaTime);
+                    this.handleBlockSelection();
+                }
+                
+                this.renderer.render(this.scene, this.camera);
+                requestAnimationFrame(gameLoop);
+            };
+            
+            gameLoop();
+        }
+    }
+    </script>
 </body>
 </html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bloxd.io Alpha 0.1.3</title>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background: #000;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            z-index: 100;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        #debug {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            z-index: 100;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 20px;
+            text-align: center;
+            z-index: 100;
+        }
+        #hotbar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 5px;
+            z-index: 100;
+        }
+        .hotbar-slot {
+            width: 50px;
+            height: 50px;
+            background: rgba(0,0,0,0.7);
+            border: 2px solid #555;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .hotbar-slot.active {
+            border-color: #fff;
+            background: rgba(255,255,255,0.2);
+        }
+        .block-preview {
+            width: 40px;
+            height: 40px;
+            border-radius: 3px;
+        }
+        .mode-indicator {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="info">
+            <h3>Bloxd.io Alpha 0.1.3</h3>
+            <p>WASD - двигаться | Мышь - вращать камеру</p>
+            <p>ЛКМ - поставить блок | ПКМ - убрать блок</p>
+            <p>Цифры 1-5 - выбор блока | F - режим полета</p>
+            <p>Space - прыжок (в режиме ходьбы)</p>
+        </div>
+        <div id="debug">
+            <div>Режим: <span id="mode">ХОДЬБА</span></div>
+            <div>Позиция: <span id="position">0, 0, 0</span></div>
+            <div>Скорость: <span id="velocity">0, 0, 0</span></div>
+            <div>На земле: <span id="grounded">нет</span></div>
+        </div>
+        <div id="crosshair">+</div>
+        <div class="mode-indicator" id="modeIndicator">Режим: ХОДЬБА</div>
+        <div id="hotbar">
+            <!-- Хотбар будет заполнен через JavaScript -->
+        </div>
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

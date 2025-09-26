@@ -1,116 +1,3 @@
-class GameMenu {
-    constructor() {
-        this.loadingElements = {
-            screen: document.getElementById('loadingScreen'),
-            progress: document.getElementById('loadingProgress'),
-            text: document.getElementById('loadingText')
-        };
-        
-        this.menuElements = {
-            mainMenu: document.getElementById('mainMenu'),
-            gameUI: document.getElementById('gameUI'),
-            pauseMenu: document.getElementById('pauseMenu')
-        };
-        
-        this.isGameStarted = false;
-        this.isPaused = false;
-    }
-    
-    async showLoading() {
-        this.loadingElements.screen.style.display = 'flex';
-        
-        // Имитация загрузки
-        const steps = [
-            {text: 'Загрузка графики...', progress: 20},
-            {text: 'Инициализация мира...', progress: 50},
-            {text: 'Загрузка текстур...', progress: 80},
-            {text: 'Готово!', progress: 100}
-        ];
-        
-        for (const step of steps) {
-            await this.updateLoading(step.text, step.progress);
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        this.hideLoading();
-    }
-    
-    updateLoading(text, progress) {
-        return new Promise(resolve => {
-            this.loadingElements.text.textContent = text;
-            this.loadingElements.progress.style.width = progress + '%';
-            setTimeout(resolve, 100);
-        });
-    }
-    
-    hideLoading() {
-        this.loadingElements.screen.style.display = 'none';
-        this.showMainMenu();
-    }
-    
-    showMainMenu() {
-        this.menuElements.mainMenu.style.display = 'flex';
-    }
-    
-    hideMainMenu() {
-        this.menuElements.mainMenu.style.display = 'none';
-    }
-    
-    showGameUI() {
-        this.menuElements.gameUI.style.display = 'block';
-    }
-    
-    hideGameUI() {
-        this.menuElements.gameUI.style.display = 'none';
-    }
-    
-    showPauseMenu() {
-        this.menuElements.pauseMenu.style.display = 'flex';
-        this.isPaused = true;
-    }
-    
-    hidePauseMenu() {
-        this.menuElements.pauseMenu.style.display = 'none';
-        this.isPaused = false;
-    }
-}
-
-// Глобальные функции для кнопок
-function startGame() {
-    const menu = window.gameMenu;
-    menu.hideMainMenu();
-    menu.showGameUI();
-    window.game.start();
-}
-
-function resumeGame() {
-    const menu = window.gameMenu;
-    menu.hidePauseMenu();
-    window.game.setPaused(false);
-}
-
-function backToMenu() {
-    const menu = window.gameMenu;
-    menu.hidePauseMenu();
-    menu.hideGameUI();
-    menu.showMainMenu();
-    window.game.stop();
-}
-
-function showSettings() {
-    alert('Настройки будут в следующей версии!');
-}
-
-function showAbout() {
-    alert('MetaCraft Alpha 0.1.4\n\nСоздай свою вселенную из блоков!\n\nУправление:\nWASD - движение\nМышь - вращение камеры\nЛКМ/ПКМ - установка/удаление блоков\n1-8 - выбор блоков\nE - инвентарь\nESC - пауза');
-}
-
-// Инициализация при загрузке страницы
-window.addEventListener('load', () => {
-    window.gameMenu = new GameMenu();
-    window.gameMenu.showLoading();
-});
 class MetaCraftGame {
     constructor() {
         this.scene = null;
@@ -120,49 +7,46 @@ class MetaCraftGame {
         
         // Игровые объекты
         this.blocks = new Map();
-        this.chunks = new Map();
+        this.selectedBlock = null;
+        this.ghostBlock = null;
+        
+        // Игрок
         this.player = {
-            position: new THREE.Vector3(0, 50, 0),
+            position: new THREE.Vector3(0, 20, 0),
             velocity: new THREE.Vector3(0, 0, 0),
-            rotation: new THREE.Vector2(0, 0),
+            rotation: new THREE.Vector2(0, 0), // x: pitch, y: yaw
             onGround: false,
             height: 1.8,
-            radius: 0.4
+            radius: 0.3
         };
         
         // Настройки
         this.settings = {
-            renderDistance: 4,
-            gravity: -30,
-            jumpForce: 10,
+            gravity: -25,
+            jumpForce: 8,
             walkSpeed: 5,
             flySpeed: 8,
-            mouseSensitivity: 0.002
+            mouseSensitivity: 0.002,
+            renderDistance: 4
         };
         
         // Режимы
         this.modes = {
             WALK: 'walk',
-            FLY: 'fly',
-            CREATIVE: 'creative'
+            FLY: 'fly'
         };
-        this.currentMode = this.modes.CREATIVE;
+        this.currentMode = this.modes.FLY;
         
-        // Система блоков (расширенная)
+        // Система блоков
         this.blockTypes = {
-            AIR: { id: 0, name: 'Воздух', color: 0x000000, solid: false, transparent: true },
-            STONE: { id: 1, name: 'Камень', color: 0x888888, solid: true },
-            GRASS: { id: 2, name: 'Земля', color: 0x3d9970, solid: true },
-            DIRT: { id: 3, name: 'Грязь', color: 0x8B4513, solid: true },
-            WOOD: { id: 4, name: 'Дерево', color: 0x8B4513, solid: true },
-            LEAVES: { id: 5, name: 'Листья', color: 0x228B22, solid: true, transparent: true },
-            SAND: { id: 6, name: 'Песок', color: 0xffd700, solid: true },
-            WATER: { id: 7, name: 'Вода', color: 0x0066cc, solid: false, transparent: true },
-            COAL_ORE: { id: 8, name: 'Уголь', color: 0x333333, solid: true },
-            IRON_ORE: { id: 9, name: 'Железо', color: 0xd8d8d8, solid: true },
-            GOLD_ORE: { id: 10, name: 'Золото', color: 0xffd700, solid: true },
-            DIAMOND_ORE: { id: 11, name: 'Алмаз', color: 0x4cc9f0, solid: true },
-            BEDROCK: { id: 12, name: 'Бедрок', color: 0x222222, solid: true, unbreakable: true }
+            GRASS: { id: 1, name: 'Земля', color: 0x3d9970, solid: true },
+            STONE: { id: 2, name: 'Камень', color: 0x888888, solid: true },
+            WOOD: { id: 3, name: 'Дерево', color: 0x8B4513, solid: true },
+            DIRT: { id: 4, name: 'Грязь', color: 0x5D4037, solid: true },
+            SAND: { id: 5, name: 'Песок', color: 0xFFD700, solid: true },
+            WATER: { id: 6, name: 'Вода', color: 0x2196F3, solid: false },
+            COAL_ORE: { id: 7, name: 'Уголь', color: 0x212121, solid: true },
+            DIAMOND_ORE: { id: 8, name: 'Алмаз', color: 0x4CC9F0, solid: true }
         };
         
         this.currentBlockType = this.blockTypes.GRASS;
@@ -175,66 +59,17 @@ class MetaCraftGame {
         this.keys = {};
         this.mouse = { x: 0, y: 0, left: false, right: false };
         
-        // Материалы
-        this.materials = {};
-        this.initMaterials();
+        this.init();
     }
     
-    initMaterials() {
-        // Создаем материалы для каждого типа блоков
-        for (const [key, blockType] of Object.entries(this.blockTypes)) {
-            if (blockType.id === 0) continue; // Пропускаем воздух
-            
-            this.materials[blockType.id] = {
-                normal: new THREE.MeshLambertMaterial({ 
-                    color: blockType.color,
-                    transparent: blockType.transparent || false,
-                    opacity: blockType.transparent ? 0.8 : 1.0
-                }),
-                selected: new THREE.MeshLambertMaterial({ 
-                    color: 0xffaa00,
-                    transparent: blockType.transparent || false,
-                    opacity: blockType.transparent ? 0.9 : 1.0
-                })
-            };
-        }
-        
-        // Материал для призрачного блока
-        this.ghostMaterial = new THREE.MeshLambertMaterial({ 
-            color: 0x00ff00, 
-            transparent: true, 
-            opacity: 0.4 
-        });
-    }
-    
-    async start() {
-        await this.init();
-        this.isRunning = true;
-        this.animate();
-    }
-    
-    stop() {
-        this.isRunning = false;
-        // Очистка сцены
-        if (this.scene) {
-            while(this.scene.children.length > 0) { 
-                this.scene.remove(this.scene.children[0]); 
-            }
-        }
-    }
-    
-    setPaused(paused) {
-        this.isPaused = paused;
-    }
-    
-    async init() {
+    init() {
         // 1. Создаем сцену
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x87CEEB);
+        this.scene.background = new THREE.Color(0x87CEEB); // Голубое небо
         
-        // 2. Создаем камеру (правильную FPS камеру)
+        // 2. Создаем камеру
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.updateCameraPosition();
+        this.updateCamera();
         
         // 3. Создаем рендерер
         this.renderer = new THREE.WebGLRenderer({ 
@@ -244,207 +79,143 @@ class MetaCraftGame {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
         
-        // 4. Raycaster для выбора блоков
-        this.raycaster = new THREE.Raycaster();
-        
-        // 5. Освещение
+        // 4. Освещение
         this.setupLighting();
         
-        // 6. Генерация мира
-        await this.generateWorld();
+        // 5. Raycaster для выбора блоков
+        this.raycaster = new THREE.Raycaster();
         
-        // 7. Призрачный блок
+        // 6. Генерация мира
+        this.generateWorld();
+        
+        // 7. Призрачный блок для предпросмотра
         this.setupGhostBlock();
         
-        // 8. Инициализация инвентаря
+        // 8. Инициализация инвентаря и хотбара
         this.setupInventory();
         
         // 9. Управление
         this.setupControls();
         
-        console.log('🎮 MetaCraft Alpha 0.1.4 запущена!');
+        console.log('🎮 MetaCraft инициализирована!');
     }
     
     setupLighting() {
-        // Ambient light
+        // Ambient light (рассеянный свет)
         const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
         this.scene.add(ambientLight);
         
         // Directional light (солнце)
-        this.sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
-        this.sunLight.position.set(100, 100, 50);
-        this.sunLight.castShadow = true;
-        this.sunLight.shadow.mapSize.width = 2048;
-        this.sunLight.shadow.mapSize.height = 2048;
-        this.scene.add(this.sunLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(50, 100, 50);
+        directionalLight.castShadow = true;
+        this.scene.add(directionalLight);
         
         // Hemisphere light для неба
-        const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x3d9970, 0.3);
-        this.scene.add(hemiLight);
+        const hemisphereLight = new THREE.HemisphereLight(0x87CEEB, 0x8BC34A, 0.3);
+        this.scene.add(hemisphereLight);
     }
     
-    updateCameraPosition() {
-        // Правильная FPS камера
-        this.camera.position.copy(this.player.position);
-        this.camera.position.y += this.player.height - 0.2; // Уровень глаз
+    generateWorld() {
+        const worldSize = 32;
+        const groundHeight = 10;
         
-        // Поворот камеры
-        this.camera.rotation.order = 'YXZ';
-        this.camera.rotation.y = this.player.rotation.y;
-        this.camera.rotation.x = this.player.rotation.x;
-    }
-    
-    async generateWorld() {
-        const chunkSize = 16;
-        const worldSize = this.settings.renderDistance * 2 + 1;
-        
-        for (let x = -this.settings.renderDistance; x <= this.settings.renderDistance; x++) {
-            for (let z = -this.settings.renderDistance; z <= this.settings.renderDistance; z++) {
-                await this.generateChunk(x, z, chunkSize);
+        // Генерация земли
+        for (let x = -worldSize; x < worldSize; x++) {
+            for (let z = -worldSize; z < worldSize; z++) {
+                // Базовый слой - камень
+                for (let y = 0; y < groundHeight - 3; y++) {
+                    this.createBlock(x, y, z, this.blockTypes.STONE);
+                }
+                
+                // Верхние слои
+                this.createBlock(x, groundHeight - 3, z, this.blockTypes.DIRT);
+                this.createBlock(x, groundHeight - 2, z, this.blockTypes.DIRT);
+                this.createBlock(x, groundHeight - 1, z, this.blockTypes.DIRT);
+                
+                // Поверхность - разная в зависимости от позиции
+                const distance = Math.sqrt(x*x + z*z);
+                let surfaceBlock = this.blockTypes.GRASS;
+                
+                if (distance < 8) {
+                    // Центральная область - трава
+                    surfaceBlock = this.blockTypes.GRASS;
+                    
+                    // Генерация деревьев
+                    if (Math.random() < 0.1 && x % 3 === 0 && z % 3 === 0) {
+                        this.generateTree(x, groundHeight, z);
+                    }
+                } else if (distance < 16) {
+                    // Средняя область - песок
+                    surfaceBlock = this.blockTypes.SAND;
+                } else {
+                    // Крайняя область - камень
+                    surfaceBlock = this.blockTypes.STONE;
+                }
+                
+                this.createBlock(x, groundHeight, z, surfaceBlock);
+                
+                // Генерация руд под землей
+                if (Math.random() < 0.05) {
+                    const oreType = Math.random() < 0.8 ? this.blockTypes.COAL_ORE : this.blockTypes.DIAMOND_ORE;
+                    this.createBlock(x, groundHeight - 5, z, oreType);
+                }
             }
         }
         
-        // Помещаем игрока на поверхность
-        this.findSpawnPosition();
-    }
-    
-    async generateChunk(chunkX, chunkZ, size) {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                const chunkKey = `${chunkX},${chunkZ}`;
-                
-                for (let x = 0; x < size; x++) {
-                    for (let z = 0; z < size; z++) {
-                        const worldX = chunkX * size + x;
-                        const worldZ = chunkZ * size + z;
-                        
-                        // Генерация высоты (шум Перлина)
-                        const height = this.getTerrainHeight(worldX, worldZ);
-                        
-                        // Определяем биом
-                        const biome = this.getBiome(worldX, worldZ);
-                        
-                        // Генерация блоков для этого столбца
-                        this.generateColumn(worldX, worldZ, height, biome);
-                    }
-                }
-                
-                resolve();
-            }, 0);
-        });
-    }
-    
-    getTerrainHeight(x, z) {
-        // Простой шум для высоты
-        const noise = Math.sin(x * 0.01) * Math.cos(z * 0.01) * 10 +
-                     Math.sin(x * 0.02) * Math.cos(z * 0.02) * 5 +
-                     Math.sin(x * 0.05) * Math.cos(z * 0.05) * 2;
+        // Создаем несколько структур для демонстрации
+        this.generateStructures();
         
-        return Math.floor(noise + 30); // Базовая высота 30
-    }
-    
-    getBiome(x, z) {
-        const temperature = Math.sin(x * 0.001) * 0.5 + 0.5;
-        const humidity = Math.cos(z * 0.001) * 0.5 + 0.5;
-        
-        if (temperature > 0.7 && humidity < 0.3) return 'DESERT';
-        if (temperature < 0.3) return 'MOUNTAIN';
-        if (humidity > 0.7) return 'FOREST';
-        return 'PLAINS';
-    }
-    
-    generateColumn(x, z, surfaceHeight, biome) {
-        // Бедрок внизу
-        this.createBlock(x, 0, z, this.blockTypes.BEDROCK);
-        
-        // Камень до высоты surfaceHeight-3
-        for (let y = 1; y < surfaceHeight - 3; y++) {
-            // Случайные руды
-            let blockType = this.blockTypes.STONE;
-            const oreChance = Math.random();
-            
-            if (oreChance < 0.02) blockType = this.blockTypes.COAL_ORE;
-            else if (oreChance < 0.005) blockType = this.blockTypes.IRON_ORE;
-            else if (oreChance < 0.001) blockType = this.blockTypes.GOLD_ORE;
-            else if (oreChance < 0.0003) blockType = this.blockTypes.DIAMOND_ORE;
-            
-            this.createBlock(x, y, z, blockType);
-        }
-        
-        // Переходный слой
-        this.createBlock(x, surfaceHeight - 3, z, this.blockTypes.DIRT);
-        this.createBlock(x, surfaceHeight - 2, z, this.blockTypes.DIRT);
-        this.createBlock(x, surfaceHeight - 1, z, this.blockTypes.DIRT);
-        
-        // Поверхностный блок в зависимости от биома
-        let surfaceBlock = this.blockTypes.GRASS;
-        if (biome === 'DESERT') surfaceBlock = this.blockTypes.SAND;
-        else if (biome === 'MOUNTAIN') surfaceBlock = this.blockTypes.STONE;
-        
-        this.createBlock(x, surfaceHeight, z, surfaceBlock);
-        
-        // Генерация деревьев в лесу
-        if (biome === 'FOREST' && Math.random() < 0.1 && x % 4 === 0 && z % 4 === 0) {
-            this.generateTree(x, surfaceHeight + 1, z);
-        }
-        
-        // Пещеры
-        if (Math.random() < 0.05) {
-            this.generateCave(x, surfaceHeight - 5, z);
-        }
+        // Помещаем игрока над землей
+        this.player.position.set(0, groundHeight + 5, 0);
+        this.updateCamera();
     }
     
     generateTree(x, y, z) {
-        // Ствол (4-6 блоков)
-        const height = 4 + Math.floor(Math.random() * 3);
-        for (let i = 0; i < height; i++) {
+        // Ствол (3-4 блока высотой)
+        const trunkHeight = 3 + Math.floor(Math.random() * 2);
+        for (let i = 0; i < trunkHeight; i++) {
             this.createBlock(x, y + i, z, this.blockTypes.WOOD);
         }
         
-        // Листва (сфера)
+        // Листва (простая сфера)
         for (let dx = -2; dx <= 2; dx++) {
-            for (let dy = 0; dy < 3; dy++) {
-                for (let dz = -2; dz <= 2; dz++) {
-                    if (Math.abs(dx) + Math.abs(dz) < 4 && (dx !== 0 || dz !== 0 || dy > 1)) {
-                        this.createBlock(x + dx, y + height - 1 + dy, z + dz, this.blockTypes.LEAVES);
+            for (let dz = -2; dz <= 2; dz++) {
+                for (let dy = 0; dy < 3; dy++) {
+                    if (Math.abs(dx) + Math.abs(dz) + Math.abs(dy) < 4) {
+                        if (!(dx === 0 && dz === 0 && dy < 2)) { // Не закрываем ствол
+                            this.createBlock(x + dx, y + trunkHeight - 1 + dy, z + dz, this.blockTypes.GRASS);
+                        }
                     }
                 }
             }
         }
     }
     
-    generateCave(x, y, z) {
-        const size = 3 + Math.floor(Math.random() * 4);
-        for (let dx = -size; dx <= size; dx++) {
-            for (let dy = -size; dy <= size; dy++) {
-                for (let dz = -size; dz <= size; dz++) {
-                    if (dx*dx + dy*dy + dz*dz < size*size) {
-                        this.removeBlock(x + dx, y + dy, z + dz);
+    generateStructures() {
+        // Пирамида из песка
+        for (let level = 0; level < 5; level++) {
+            const size = 5 - level;
+            for (let x = -size; x <= size; x++) {
+                for (let z = -size; z <= size; z++) {
+                    if (Math.abs(x) === size || Math.abs(z) === size) {
+                        this.createBlock(x + 12, level + 11, z, this.blockTypes.SAND);
                     }
                 }
             }
         }
-    }
-    
-    findSpawnPosition() {
-        // Ищем безопасную позицию для спавна
-        for (let x = 0; x < 10; x++) {
-            for (let z = 0; z < 10; z++) {
-                const surfaceHeight = this.getTerrainHeight(x, z);
-                if (surfaceHeight > 20) {
-                    this.player.position.set(x, surfaceHeight + 2, z);
-                    this.updateCameraPosition();
-                    return;
-                }
+        
+        // Водоем
+        for (let x = -3; x <= 3; x++) {
+            for (let z = -3; z <= 3; z++) {
+                this.createBlock(x - 12, 9, z, this.blockTypes.WATER);
             }
         }
     }
     
     createBlock(x, y, z, blockType) {
-        if (blockType.id === 0) return null; // Не создаем воздух
-        
         const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const material = this.materials[blockType.id].normal;
+        const material = new THREE.MeshLambertMaterial({ color: blockType.color });
         const block = new THREE.Mesh(geometry, material);
         block.position.set(x, y, z);
         
@@ -472,35 +243,40 @@ class MetaCraftGame {
             
             // Добавляем блок в инвентарь
             const blockType = block.userData.blockType;
-            if (!blockType.unbreakable) {
-                this.addToInventory(blockType);
+            if (!this.inventory[blockType.id]) {
+                this.inventory[blockType.id] = 0;
             }
+            this.inventory[blockType.id]++;
+            this.updateHotbar();
             
             return true;
         }
         return false;
     }
     
-    addToInventory(blockType) {
-        if (!this.inventory[blockType.id]) {
-            this.inventory[blockType.id] = 0;
-        }
-        this.inventory[blockType.id]++;
-        this.updateHotbar();
-    }
-    
     setupGhostBlock() {
         const geometry = new THREE.BoxGeometry(1, 1, 1);
-        this.ghostBlock = new THREE.Mesh(geometry, this.ghostMaterial);
+        const material = new THREE.MeshLambertMaterial({ 
+            color: 0x00FF00, 
+            transparent: true, 
+            opacity: 0.4 
+        });
+        this.ghostBlock = new THREE.Mesh(geometry, material);
         this.scene.add(this.ghostBlock);
         this.ghostBlock.visible = false;
     }
     
     setupInventory() {
-        // Заполняем инвентарь стартовыми блоками
-        this.inventory[this.blockTypes.GRASS.id] = 10;
-        this.inventory[this.blockTypes.WOOD.id] = 10;
-        this.inventory[this.blockTypes.STONE.id] = 10;
+        // Стартовый инвентарь
+        const startBlocks = [
+            this.blockTypes.GRASS, this.blockTypes.STONE, this.blockTypes.WOOD,
+            this.blockTypes.DIRT, this.blockTypes.SAND, this.blockTypes.WATER,
+            this.blockTypes.COAL_ORE, this.blockTypes.DIAMOND_ORE
+        ];
+        
+        startBlocks.forEach(blockType => {
+            this.inventory[blockType.id] = 64; // По 64 блока каждого типа
+        });
         
         this.updateHotbar();
     }
@@ -510,14 +286,9 @@ class MetaCraftGame {
         hotbar.innerHTML = '';
         
         const hotbarBlocks = [
-            this.blockTypes.GRASS,
-            this.blockTypes.STONE,
-            this.blockTypes.WOOD,
-            this.blockTypes.DIRT,
-            this.blockTypes.SAND,
-            this.blockTypes.COAL_ORE,
-            this.blockTypes.IRON_ORE,
-            this.blockTypes.DIAMOND_ORE
+            this.blockTypes.GRASS, this.blockTypes.STONE, this.blockTypes.WOOD,
+            this.blockTypes.DIRT, this.blockTypes.SAND, this.blockTypes.WATER,
+            this.blockTypes.COAL_ORE, this.blockTypes.DIAMOND_ORE
         ];
         
         hotbarBlocks.forEach((blockType, index) => {
@@ -532,10 +303,16 @@ class MetaCraftGame {
             const preview = document.createElement('div');
             preview.className = 'block-preview';
             preview.style.backgroundColor = `#${blockType.color.toString(16).padStart(6, '0')}`;
-            preview.title = blockType.name;
+            preview.title = `${blockType.name} (${this.inventory[blockType.id] || 0})`;
             
             const count = document.createElement('div');
-            count.className = 'block-count';
+            count.style.position = 'absolute';
+            count.style.bottom = '2px';
+            count.style.right = '2px';
+            count.style.background = 'rgba(0,0,0,0.8)';
+            count.style.padding = '1px 4px';
+            count.style.borderRadius = '3px';
+            count.style.fontSize = '10px';
             count.textContent = this.inventory[blockType.id] || 0;
             
             slot.appendChild(preview);
@@ -554,6 +331,7 @@ class MetaCraftGame {
     selectBlockType(blockType) {
         this.currentBlockType = blockType;
         
+        // Обновляем хотбар
         this.hotbarSlots.forEach(slot => {
             slot.classList.remove('active');
             if (parseInt(slot.dataset.blockId) === blockType.id) {
@@ -561,7 +339,11 @@ class MetaCraftGame {
             }
         });
         
+        // Обновляем призрачный блок
         this.ghostBlock.material.color.set(blockType.color);
+        
+        // Обновляем UI
+        document.getElementById('currentBlock').textContent = blockType.name;
     }
     
     setupControls() {
@@ -575,8 +357,8 @@ class MetaCraftGame {
             if (event.code >= 'Digit1' && event.code <= 'Digit8') {
                 const hotbarBlocks = [
                     this.blockTypes.GRASS, this.blockTypes.STONE, this.blockTypes.WOOD,
-                    this.blockTypes.DIRT, this.blockTypes.SAND, this.blockTypes.COAL_ORE,
-                    this.blockTypes.IRON_ORE, this.blockTypes.DIAMOND_ORE
+                    this.blockTypes.DIRT, this.blockTypes.SAND, this.blockTypes.WATER,
+                    this.blockTypes.COAL_ORE, this.blockTypes.DIAMOND_ORE
                 ];
                 const slotIndex = parseInt(event.code[5]) - 1;
                 if (hotbarBlocks[slotIndex]) {
@@ -587,11 +369,6 @@ class MetaCraftGame {
             // Переключение режима полета
             if (event.code === 'KeyF') {
                 this.toggleFlightMode();
-            }
-            
-            // Пауза
-            if (event.code === 'Escape') {
-                this.togglePause();
             }
         });
         
@@ -623,7 +400,9 @@ class MetaCraftGame {
             if (event.button === 2) this.mouse.right = false;
         });
         
-        document.addEventListener('contextmenu', (event) => event.preventDefault());
+        document.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+        });
         
         // Блокировка указателя при клике на канвас
         this.renderer.domElement.addEventListener('click', () => {
@@ -640,31 +419,27 @@ class MetaCraftGame {
         } else {
             this.currentMode = this.modes.WALK;
         }
-        this.updateDebugInfo();
-    }
-    
-    togglePause() {
-        this.isPaused = !this.isPaused;
         
-        if (this.isPaused) {
-            document.exitPointerLock();
-            window.gameMenu.showPauseMenu();
-        } else {
-            window.gameMenu.hidePauseMenu();
-        }
+        document.getElementById('gameMode').textContent = 
+            this.currentMode === this.modes.FLY ? 'ПОЛЕТ' : 'ХОДЬБА';
     }
     
-    // Продолжение в следующем сообщении...
-}
-
-// Продолжение класса MetaCraftGame
-Object.assign(MetaCraftGame.prototype, {
+    updateCamera() {
+        this.camera.position.copy(this.player.position);
+        this.camera.position.y += this.player.height - 0.2; // Уровень глаз
+        
+        // Правильное вращение FPS камеры
+        this.camera.rotation.order = 'YXZ';
+        this.camera.rotation.y = this.player.rotation.y;
+        this.camera.rotation.x = this.player.rotation.x;
+    }
+    
     handleInput(deltaTime) {
         if (this.isPaused) return;
         
         const sensitivity = this.settings.mouseSensitivity;
         
-        // Вращение камеры (правильное FPS управление)
+        // Вращение камеры
         if (document.pointerLockElement === this.renderer.domElement) {
             this.player.rotation.y -= this.mouse.x * sensitivity;
             this.player.rotation.x -= this.mouse.y * sensitivity;
@@ -672,8 +447,6 @@ Object.assign(MetaCraftGame.prototype, {
             // Ограничиваем вертикальный взгляд
             this.player.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, this.player.rotation.x));
         }
-        
-        this.updateCameraPosition();
         
         // Движение
         const moveVector = new THREE.Vector3(0, 0, 0);
@@ -687,27 +460,26 @@ Object.assign(MetaCraftGame.prototype, {
             moveVector.normalize();
             
             // Преобразуем направление относительно камеры
-            const forward = new THREE.Vector3(0, 0, -1);
-            forward.applyQuaternion(this.camera.quaternion);
-            forward.y = 0;
-            forward.normalize();
+            const cameraDirection = new THREE.Vector3();
+            this.camera.getWorldDirection(cameraDirection);
+            cameraDirection.y = 0;
+            cameraDirection.normalize();
             
-            const right = new THREE.Vector3(1, 0, 0);
-            right.applyQuaternion(this.camera.quaternion);
-            right.y = 0;
-            right.normalize();
+            const right = new THREE.Vector3();
+            right.crossVectors(cameraDirection, new THREE.Vector3(0, 1, 0));
             
             const worldMove = new THREE.Vector3();
-            worldMove.addScaledVector(forward, moveVector.z);
+            worldMove.addScaledVector(cameraDirection, moveVector.z);
             worldMove.addScaledVector(right, moveVector.x);
             worldMove.normalize();
             
             const speed = this.currentMode === this.modes.FLY ? this.settings.flySpeed : this.settings.walkSpeed;
-            worldMove.multiplyScalar(speed * deltaTime);
+            worldMove.multiplyScalar(speed);
             
             this.player.velocity.x = worldMove.x;
             this.player.velocity.z = worldMove.z;
         } else {
+            // Трение
             this.player.velocity.x *= 0.8;
             this.player.velocity.z *= 0.8;
         }
@@ -715,8 +487,8 @@ Object.assign(MetaCraftGame.prototype, {
         // Вертикальное движение
         if (this.currentMode === this.modes.FLY) {
             this.player.velocity.y = 0;
-            if (this.keys['Space']) this.player.velocity.y = this.settings.flySpeed * deltaTime;
-            if (this.keys['ShiftLeft']) this.player.velocity.y = -this.settings.flySpeed * deltaTime;
+            if (this.keys['Space']) this.player.velocity.y = this.settings.flySpeed;
+            if (this.keys['ShiftLeft'] || this.keys['ShiftRight']) this.player.velocity.y = -this.settings.flySpeed;
         } else {
             // Гравитация и прыжки
             this.player.velocity.y += this.settings.gravity * deltaTime;
@@ -729,166 +501,110 @@ Object.assign(MetaCraftGame.prototype, {
         
         this.mouse.x = 0;
         this.mouse.y = 0;
-    },
+    }
     
     updatePhysics(deltaTime) {
         if (this.isPaused) return;
         
-        // Новая позиция
+        // Простая проверка коллизий (для демо)
         const newPos = this.player.position.clone().add(
             this.player.velocity.clone().multiplyScalar(deltaTime)
         );
         
-        // Проверка коллизий
-        this.checkCollisions(newPos);
-        
-        this.updateCameraPosition();
-    },
-    
-    checkCollisions(newPos) {
-        // Упрощенная проверка коллизий
-        const feetPos = newPos.clone();
-        const headPos = newPos.clone();
-        headPos.y += this.player.height;
-        
-        this.player.onGround = false;
-        
-        // Проверяем коллизии по вертикали
-        for (let y = 0; y <= this.player.height; y += 0.5) {
-            const checkPos = newPos.clone();
-            checkPos.y += y;
-            
-            if (this.isSolidBlockAt(checkPos.x, checkPos.y, checkPos.z)) {
-                if (y < 0.5) { // Коллизия с ногами
-                    this.player.onGround = true;
-                    this.player.velocity.y = Math.max(0, this.player.velocity.y);
-                    newPos.y = Math.floor(checkPos.y) + 1.1;
-                } else { // Коллизия с головой
-                    this.player.velocity.y = Math.min(0, this.player.velocity.y);
-                    newPos.y = Math.floor(checkPos.y) - this.player.height - 0.1;
-                }
-                break;
-            }
-        }
-        
-        // Проверяем горизонтальные коллизии
-        const horizontalChecks = [
-            {x: this.player.radius, z: 0}, {x: -this.player.radius, z: 0},
-            {x: 0, z: this.player.radius}, {x: 0, z: -this.player.radius}
-        ];
-        
-        for (const check of horizontalChecks) {
-            const checkPos = newPos.clone();
-            checkPos.x += check.x;
-            checkPos.z += check.z;
-            checkPos.y += this.player.height * 0.5;
-            
-            if (this.isSolidBlockAt(checkPos.x, checkPos.y, checkPos.z)) {
-                this.player.velocity.x = 0;
-                this.player.velocity.z = 0;
-                newPos.copy(this.player.position);
-                break;
-            }
+        // Проверяем, не упал ли игрок ниже уровня земли
+        if (newPos.y < 1) {
+            newPos.y = 1;
+            this.player.velocity.y = 0;
+            this.player.onGround = true;
+        } else {
+            this.player.onGround = false;
         }
         
         this.player.position.copy(newPos);
-    },
-    
-    isSolidBlockAt(x, y, z) {
-        const blockX = Math.floor(x);
-        const blockY = Math.floor(y);
-        const blockZ = Math.floor(z);
-        
-        const key = `${blockX},${blockY},${blockZ}`;
-        const block = this.blocks.get(key);
-        
-        return block && block.userData.blockType.solid;
-    },
+        this.updateCamera();
+    }
     
     handleBlockSelection() {
         if (this.isPaused) return;
         
         this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
-        const intersects = this.raycaster.intersectObjects(Array.from(this.blocks.values()));
+        const intersectObjects = Array.from(this.blocks.values());
+        const intersects = this.raycaster.intersectObjects(intersectObjects);
         
-        // Сброс выделения
+        // Сбрасываем выделение предыдущего блока
         if (this.selectedBlock) {
             const blockType = this.selectedBlock.userData.blockType;
-            this.selectedBlock.material = this.materials[blockType.id].normal;
+            this.selectedBlock.material.color.set(blockType.color);
             this.selectedBlock = null;
         }
         
         this.ghostBlock.visible = false;
-        this.placePosition = null;
         
         if (intersects.length > 0) {
             const intersect = intersects[0];
             this.selectedBlock = intersect.object;
             
-            // Подсветка выбранного блока
-            this.selectedBlock.material = this.materials[this.selectedBlock.userData.blockType.id].selected;
+            // Подсвечиваем выбранный блок
+            this.selectedBlock.material.color.set(0xFFFF00);
             
-            // Позиция для установки нового блока
+            // Определяем позицию для установки нового блока
             const normal = intersect.face.normal;
-            this.placePosition = {
+            const placePosition = {
                 x: Math.round(intersect.point.x + normal.x * 0.5),
                 y: Math.round(intersect.point.y + normal.y * 0.5),
                 z: Math.round(intersect.point.z + normal.z * 0.5)
             };
             
-            // Призрачный блок
-            if (!this.isSolidBlockAt(this.placePosition.x, this.placePosition.y, this.placePosition.z)) {
-                this.ghostBlock.position.set(
-                    this.placePosition.x,
-                    this.placePosition.y,
-                    this.placePosition.z
-                );
+            // Показываем призрачный блок
+            if (!this.isBlockAt(placePosition.x, placePosition.y, placePosition.z)) {
+                this.ghostBlock.position.set(placePosition.x, placePosition.y, placePosition.z);
                 this.ghostBlock.visible = true;
             }
             
-            // Взаимодействие с блоками
+            // Обработка кликов
             if (this.mouse.right) {
                 const pos = this.selectedBlock.userData.position;
                 this.removeBlock(pos.x, pos.y, pos.z);
                 this.mouse.right = false;
-            } else if (this.mouse.left && this.placePosition) {
-                if (!this.isSolidBlockAt(this.placePosition.x, this.placePosition.y, this.placePosition.z)) {
-                    // Проверяем есть ли блок в инвентаре
-                    if (this.inventory[this.currentBlockType.id] > 0) {
-                        this.createBlock(
-                            this.placePosition.x,
-                            this.placePosition.y,
-                            this.placePosition.z,
-                            this.currentBlockType
-                        );
-                        this.inventory[this.currentBlockType.id]--;
-                        this.updateHotbar();
-                    }
-                    this.mouse.left = false;
+            } else if (this.mouse.left && this.ghostBlock.visible) {
+                if (this.inventory[this.currentBlockType.id] > 0) {
+                    this.createBlock(
+                        placePosition.x,
+                        placePosition.y,
+                        placePosition.z,
+                        this.currentBlockType
+                    );
+                    this.inventory[this.currentBlockType.id]--;
+                    this.updateHotbar();
                 }
+                this.mouse.left = false;
             }
         }
-    },
+    }
+    
+    isBlockAt(x, y, z) {
+        const key = `${x},${y},${z}`;
+        return this.blocks.has(key);
+    }
     
     updateDebugInfo() {
-        const biome = this.getBiome(Math.floor(this.player.position.x), Math.floor(this.player.position.z));
-        document.getElementById('posX').textContent = this.player.position.x.toFixed(1);
-        document.getElementById('posY').textContent = this.player.position.y.toFixed(1);
-        document.getElementById('posZ').textContent = this.player.position.z.toFixed(1);
-        document.getElementById('biome').textContent = this.getBiomeName(biome);
-        document.getElementById('gameMode').textContent = 
-            this.currentMode === this.modes.FLY ? 'ПОЛЕТ' : 'ХОДЬБА';
-    },
+        document.getElementById('posX').textContent = Math.floor(this.player.position.x);
+        document.getElementById('posY').textContent = Math.floor(this.player.position.y);
+        document.getElementById('posZ').textContent = Math.floor(this.player.position.z);
+    }
     
-    getBiomeName(biome) {
-        const names = {
-            'DESERT': 'Пустыня',
-            'MOUNTAIN': 'Горы',
-            'FOREST': 'Лес',
-            'PLAINS': 'Равнины'
-        };
-        return names[biome] || biome;
-    },
+    start() {
+        this.isRunning = true;
+        this.animate();
+    }
+    
+    stop() {
+        this.isRunning = false;
+    }
+    
+    setPaused(paused) {
+        this.isPaused = paused;
+    }
     
     animate() {
         if (!this.isRunning) return;
@@ -908,12 +624,9 @@ Object.assign(MetaCraftGame.prototype, {
             }
             
             this.renderer.render(this.scene, this.camera);
-            requestAnimationFrame(gameLoop.bind(this));
+            requestAnimationFrame(gameLoop);
         };
         
         gameLoop();
     }
-});
-
-// Инициализация игры
-window.game = new MetaCraftGame();
+}
